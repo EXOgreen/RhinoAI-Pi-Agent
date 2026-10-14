@@ -126,7 +126,7 @@ internal sealed class AISettingsPanel : Panel
         {
             HeaderText = Localization.LocalizeString("Default", 21),
             HeaderTextAlignment = TextAlignment.Center,
-            DataCell = new TextBoxCell { Binding = Binding.Property((AgentRow r) => r.DefaultGlyph), TextAlignment = TextAlignment.Center },
+            DataCell = new ImageViewCell { Binding = Binding.Property<AgentRow, Image?>(r => r.DefaultImage) },
             Editable = false,
             Resizable = false,
             AutoSize = true,
@@ -138,7 +138,7 @@ internal sealed class AISettingsPanel : Panel
             DataCell = new TextBoxCell { Binding = Binding.Property((AgentRow r) => r.Name), TextAlignment = TextAlignment.Center },
             Editable = false,
             Resizable = false,
-            Width = 140,
+            Expand = true
         });
 
         AgentGrid.SelectionChanged += (_, _) => LoadEditor();
@@ -282,12 +282,12 @@ internal sealed class AISettingsPanel : Panel
         ModelBox.Items.Clear();
         ModelBox.Items.Add(new ListItem
         {
-            Text = row.DefaultModel.Length > 0 ? $"{DefaultModelLabel} - {row.Models.FirstOrDefault(spec => spec.Id == row.DefaultModel)?.Display ?? row.DefaultModel}" : DefaultModelLabel,
+            Text = row.DefaultModel.Length > 0 ? $"{DefaultModelLabel} - {row.Models.FirstOrDefault(spec => spec.Id == row.DefaultModel)?.Label() ?? row.DefaultModel}" : DefaultModelLabel,
             Key = string.Empty,
         });
 
         foreach (ModelSpec spec in row.Models)
-            ModelBox.Items.Add(new ListItem { Text = spec.Display, Key = spec.Id });
+            ModelBox.Items.Add(new ListItem { Text = spec.Label(), Key = spec.Id });
 
         ModelBox.SelectedKey = row.Model;
     }
@@ -605,7 +605,12 @@ internal sealed class AISettingsPanel : Panel
         public bool Enabled { get; set; }
         public bool IsDefault { get; set; }
 
-        public string DefaultGlyph => IsDefault ? "★" : string.Empty;
+        //public string DefaultGlyph => IsDefault ? "✓" : string.Empty;
+
+        private static Image DefaultCheckIcon => 
+            Rhino.Resources.Assets.Rhino.Eto.Icons.TryGet(Rhino.Resources.ResourceIds.CheckSvg, new Size(16,16));
+
+        public Image? DefaultImage => IsDefault ? DefaultCheckIcon : null;
 
         public AgentRow(
             string name, bool available, string searchPathsText, IReadOnlyList<ModelSpec> models,

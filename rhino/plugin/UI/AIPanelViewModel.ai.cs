@@ -526,14 +526,9 @@ internal partial class AIPanelViewModel : IDisposable
                 definition.Name,
                 definition.Name,
                 model,
-                definition.Models.FirstOrDefault(spec => spec.Id == model)?.Display ?? model,
+                definition.Models.FirstOrDefault(spec => spec.Id == model)?.Label() ?? model,
                 availability,
-                availability switch
-                {
-                    "disabled" => "turned off in AI settings",
-                    "missing" => $"'{definition.Name}' was not found",
-                    _ => null,
-                }));
+                null));
         }
 
         string? active = Document is { } doc && AgentHost.TryFor(doc, out IAgentRunner agent)
