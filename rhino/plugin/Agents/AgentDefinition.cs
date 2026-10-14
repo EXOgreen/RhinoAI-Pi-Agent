@@ -104,6 +104,6 @@ internal sealed record ModelSpec(string Display, string Id)
 {
     // Display names come from Definitions.json, which the string extractor cannot read.
     public string Label() => Display
-        .Replace("(latest)", LOC.STR("(latest)"))
-        .Replace("(1M context)", LOC.STR("(1M context)"));
+        .Replace("(latest)", Localization.LocalizeString("(latest)", 219))
+        .Replace("(1M context)", Localization.LocalizeString("(1M context)", 220));
 }
