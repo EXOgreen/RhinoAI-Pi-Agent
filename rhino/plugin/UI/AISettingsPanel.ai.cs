@@ -282,12 +282,12 @@ internal sealed class AISettingsPanel : Panel
         ModelBox.Items.Clear();
         ModelBox.Items.Add(new ListItem
         {
-            Text = row.DefaultModel.Length > 0 ? $"{DefaultModelLabel} - {row.Models.FirstOrDefault(spec => spec.Id == row.DefaultModel)?.Display ?? row.DefaultModel}" : DefaultModelLabel,
+            Text = row.DefaultModel.Length > 0 ? $"{DefaultModelLabel} - {row.Models.FirstOrDefault(spec => spec.Id == row.DefaultModel)?.Label() ?? row.DefaultModel}" : DefaultModelLabel,
             Key = string.Empty,
         });
 
         foreach (ModelSpec spec in row.Models)
-            ModelBox.Items.Add(new ListItem { Text = spec.Display, Key = spec.Id });
+            ModelBox.Items.Add(new ListItem { Text = spec.Label(), Key = spec.Id });
 
         ModelBox.SelectedKey = row.Model;
     }

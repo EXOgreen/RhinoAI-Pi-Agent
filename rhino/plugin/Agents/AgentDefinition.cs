@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+using Rhino.UI;
+
 namespace Rhino.AI;
 
 /// <summary>A definition of an AI Agent</summary>
@@ -98,4 +100,10 @@ internal sealed record SearchPaths()
 
 }
 
-internal sealed record ModelSpec(string Display, string Id);
+internal sealed record ModelSpec(string Display, string Id)
+{
+    // Display names come from Definitions.json, which the string extractor cannot read.
+    public string Label() => Display
+        .Replace("(latest)", LOC.STR("(latest)"))
+        .Replace("(1M context)", LOC.STR("(1M context)"));
+}
