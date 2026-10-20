@@ -7,7 +7,7 @@
 
 # RhinoAI
 
-**A Rhino AI Integration for Rhino**
+**An AI Integration for Rhino3d**
 
 [**Read the docs →**](https://mcneel.github.io/RhinoAI/docs/)
 
