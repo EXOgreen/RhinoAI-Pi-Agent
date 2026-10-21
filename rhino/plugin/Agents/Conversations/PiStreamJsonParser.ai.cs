@@ -37,6 +37,8 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
     // net48 has no ArgumentList to inspect or rewrite, so the CLI args are tracked here and the
     // cmd-shim bypass rebuilds psi.Arguments from them.
     private List<string> SpawnArgs { get; } = [];
+    private string? CompactionCallId { get; set; }
+    private int CompactionCalls;
 
     public PiStreamJsonParser(AgentDefinition definition)
     {
@@ -241,15 +243,86 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
                 return TryStr(root, "id", out string sessionId) ? ParsedLine.Session(sessionId) : ParsedLine.None;
 
             case "message_update":
-                // Delta-only events: text_delta carries live answer text. Thinking and tool-call
-                // deltas are ignored - ACP has no thinking content block, matching how the Claude
-                // and Codex parsers surface only answer text.
-                if (root.TryGetProperty("assistantMessageEvent", out JsonElement evt) &&
-                    TryStr(evt, "type", out string evtType) &&
-                    evtType == "text_delta" &&
-                    TryStr(evt, "delta", out string delta))
-                    return ParsedLine.Emit(Chunk(delta));
-                return ParsedLine.None;
+                // Delta-only events off the in-flight assistant message: text_delta is live answer
+                // text; toolcall_start/end bracket one tool call's streamed arguments. Thinking
+                // deltas are dropped - the panel protocol has no thinking block to carry them.
+                if (!root.TryGetProperty("assistantMessageEvent", out JsonElement evt) ||
+                    !TryStr(evt, "type", out string evtType))
+                    return ParsedLine.None;
+                switch (evtType)
+                {
+                    case "text_delta" when TryStr(evt, "delta", out string text):
+                        return ParsedLine.Emit(Chunk(text));
+
+                    // The call exists before its arguments finish streaming; the UI gets the title
+                    // now and the args via the toolcall_end update.
+                    case "toolcall_start" when TryStr(evt, "id", out string callId) &&
+                        TryStr(evt, "toolName", out string callName):
+                        return ParsedLine.Emit(new ToolCallSessionUpdate
+                        {
+                            ToolCallId = callId,
+                            Title = callName,
+                        });
+
+                    case "toolcall_end" when TryStr(evt, "id", out string endId) &&
+                        evt.TryGetProperty("toolCall", out JsonElement toolCall) &&
+                        toolCall.TryGetProperty("arguments", out JsonElement args):
+                        return ParsedLine.Emit(new ToolCallUpdateSessionUpdate
+                        {
+                            ToolCallId = endId,
+                            RawInput = args.Clone(),
+                        });
+
+                    default:
+                        return ParsedLine.None;
+                }
+
+            case "compaction_start":
+                // Pi compacts the context mid-run (manually or after an overflow) and stays silent
+                // for the whole summary call, so surface it as a tool chip: open here, close on
+                // compaction_end. One compaction per one-shot process, so a plain counter id works.
+                CompactionCallId ??= $"compaction-{++CompactionCalls}";
+                string reason = TryStr(root, "reason", out string r) ? r : string.Empty;
+                return ParsedLine.Emit(new ToolCallSessionUpdate
+                {
+                    ToolCallId = CompactionCallId,
+                    Title = reason.Length > 0 ? $"Compacting context ({reason})" : "Compacting context",
+                    Status = ToolCallStatus.InProgress,
+                });
+
+            case "compaction_end":
+                if (CompactionCallId is not { } compactionId)
+                    return ParsedLine.None; // end without a start: nothing to close
+                CompactionCallId = null;
+                JsonElement compactionResult = default;
+                bool compactionFailed = root.TryGetProperty("aborted", out JsonElement compactionAborted) && compactionAborted.ValueKind == JsonValueKind.True
+                    || !root.TryGetProperty("result", out compactionResult) || compactionResult.ValueKind != JsonValueKind.Object;
+                string? compactionNote = TryStr(root, "errorMessage", out string compactionError) ? compactionError : null;
+                return ParsedLine.Emit(new ToolCallUpdateSessionUpdate
+                {
+                    ToolCallId = compactionId,
+                    Status = compactionFailed ? ToolCallStatus.Failed : ToolCallStatus.Completed,
+                    RawOutput = compactionFailed ? null : compactionResult.Clone(),
+                    Content = compactionNote is not null
+                        ? [new ContentToolCallContent { Content = new TextContentBlock { Text = compactionNote } }]
+                        : null,
+                });
+
+            case "tool_execution_start":
+                // Pi announces execution separately from the streamed tool call; the gap between
+                // toolcall_end and this event is argument validation.
+                return TryStr(root, "toolCallId", out string runId)
+                    ? ParsedLine.Emit(new ToolCallUpdateSessionUpdate
+                    {
+                        ToolCallId = runId,
+                        Status = ToolCallStatus.InProgress,
+                    })
+                    : ParsedLine.None;
+
+            case "tool_execution_end":
+                return TryStr(root, "toolCallId", out string doneId)
+                    ? ParsedLine.Emit(ToolExecutionEnd(root, doneId))
+                    : ParsedLine.None;
 
             case "agent_end":
                 // The run's true terminal event (turn_end fires per LLM turn inside the tool loop).
@@ -304,6 +377,41 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
     {
         Content = new TextContentBlock { Text = text },
     };
+
+    // The terminal tool event: status from isError (pi reports a failed execution, not a crash),
+    // the raw result for the transcript, and any text content as chip content. All fields are
+    // best-effort - a missing piece degrades to a bare status update, never a faulted turn.
+    private static SessionUpdate ToolExecutionEnd(JsonElement root, string toolCallId)
+    {
+        bool failed = root.TryGetProperty("isError", out JsonElement isError) && isError.ValueKind == JsonValueKind.True;
+
+        JsonElement? rawOutput = null;
+        if (root.TryGetProperty("result", out JsonElement result) && result.ValueKind == JsonValueKind.Object)
+            rawOutput = result.Clone();
+
+        ToolCallContent[]? content = null;
+        if (rawOutput is { } raw && raw.TryGetProperty("content", out JsonElement blocks) && blocks.ValueKind == JsonValueKind.Array)
+        {
+            List<ToolCallContent> pieces = [];
+            foreach (JsonElement block in blocks.EnumerateArray())
+                if (TryStr(block, "type", out string blockType) && blockType == "text" &&
+                    TryStr(block, "text", out string blockText) && blockText.Length > 0)
+                    pieces.Add(new ContentToolCallContent
+                    {
+                        Content = new TextContentBlock { Text = blockText },
+                    });
+            if (pieces.Count > 0)
+                content = [.. pieces];
+        }
+
+        return new ToolCallUpdateSessionUpdate
+        {
+            ToolCallId = toolCallId,
+            Status = failed ? ToolCallStatus.Failed : ToolCallStatus.Completed,
+            RawOutput = rawOutput,
+            Content = content,
+        };
+    }
 
     // Two-level read: obj[name][inner].
     private static int ReadInt(JsonElement obj, string name, string inner) =>
