@@ -84,7 +84,7 @@ public class RouterToolGenerator : IIncrementalGenerator
         });
     }
 
-    private readonly record struct ParsedFile(string Path, SyntaxTree? Tree);
+    private record struct ParsedFile(string Path, SyntaxTree? Tree);
 
     private static bool IsToolFile(string path)
     {
@@ -160,7 +160,7 @@ public class RouterToolGenerator : IIncrementalGenerator
         var className = $"{tool.ClassName}Proxy";
 
         sb.AppendLine("[global::ModelContextProtocol.Server.McpServerToolType]");
-        sb.AppendLine($"public class {className}(global::Rhino.AI.Router.ProxyDispatcher proxy)");
+        sb.AppendLine($"public sealed class {className}(global::Rhino.AI.Router.ProxyDispatcher proxy)");
         sb.AppendLine("{");
         // Always emit ReadOnly + Destructive so every router proxy carries the
         // hint annotations Anthropic's connector-submission policy requires.
@@ -404,7 +404,7 @@ public class RouterToolGenerator : IIncrementalGenerator
             .Replace("\n", "\\n");
     }
 
-    private readonly record struct ToolInfo(
+    private record struct ToolInfo(
         string ClassName,
         string Name,
         string? Title,
@@ -413,7 +413,7 @@ public class RouterToolGenerator : IIncrementalGenerator
         string Description,
         ImmutableArray<ParameterInfo> Parameters);
 
-    private readonly record struct ParameterInfo(
+    private record struct ParameterInfo(
         string Name,
         string Type,
         string Description,

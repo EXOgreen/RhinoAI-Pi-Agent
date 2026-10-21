@@ -2,7 +2,9 @@
   <Folder Name="/plugin/">
     <Project Path="rhino/plugin/RhinoAI.csproj" />
   </Folder>
-  <Folder Name="/rhino/" />
+  <Folder Name="/rhino/">
+    <Project Path="rhino/sdk/sdk.csproj" />
+  </Folder>
   <Folder Name="/rhino/acp/">
     <Project Path="rhino/acp/Acp.csproj" />
   </Folder>
@@ -17,12 +19,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Router.Tests/Router.Tests.csproj" />
-    <Project Path="tests/Acp.Tests/Acp.Tests.csproj" />
     <Project Path="tests/Integration.Tests/Integration.Tests.csproj" />
+    <Project Path="tests/sdk.tests/sdk.tests.csproj" />
     <Project Path="tests/Server.Tests/Server.Tests.csproj" />
-  </Folder>
-  <Folder Name="/ngentic/">
-    <Project Path="tests/ngentic/src/Ngentic.Core/Ngentic.Core.csproj" />
-    <Project Path="tests/ngentic/src/Ngentic.NUnit/Ngentic.NUnit.csproj" />
   </Folder>
 </Solution>

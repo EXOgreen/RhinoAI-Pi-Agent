@@ -7,9 +7,9 @@ This is a fork that allows the AIPanel command to start pi on your local machine
   <img alt="Rhino MCP" src="art/logo.svg" width="180">
 </picture>
 
-# Rhino MCP Platform
+# RhinoAI
 
-**A Rhino MCP Server for AI Agents to create and edit in Rhino.**
+**An AI Integration for Rhino3d**
 
 [**Read the docs →**](https://mcneel.github.io/RhinoAI/docs/)
 
@@ -28,7 +28,7 @@ Full guides live at **[mcneel.github.io/RhinoAI](https://mcneel.github.io/RhinoA
 
 # Quick start
 
-The fastest path is [Claude Desktop](https://mcneel.github.io/RhinoAI/docs/getting-started/connector/): install the [Rhino3d connector](https://github.com/mcneel/RhinoMCP/releases/download/connector-v0.1.3/connector.mcpb) and let it install the Rhino plugin for you. For other assistants, see [Getting Started](https://mcneel.github.io/RhinoAI/docs/getting-started/).
+The fastest path is [Claude Desktop](https://mcneel.github.io/RhinoAI/docs/getting-started/connector/): install the [Rhino3d connector](https://github.com/mcneel/RhinoAI/releases/download/connector-v0.1.6/connector.mcpb) and let it install the Rhino plugin for you. For other assistants, see [Getting Started](https://mcneel.github.io/RhinoAI/docs/getting-started/).
 
 # Building & Debugging
 
@@ -36,4 +36,4 @@ Use **Run and Debug** from within VSCode to build, launch Rhino, and start the M
 
 # Getting Help
 
-Ask questions, post discussions and ideas to the [Rhino Discourse forums](https://discourse.mcneel.com/c/rhino/artificial-intelligence-rhino/162), or [open an issue](https://github.com/mcneel/RhinoMCP/issues).
+Ask questions, post discussions and ideas to the [Rhino Discourse forums](https://discourse.mcneel.com/c/rhino/artificial-intelligence-rhino/162), or [open an issue](https://github.com/mcneel/RhinoAI/issues).

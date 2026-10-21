@@ -11,11 +11,12 @@ internal static class ScriptProjectStartup
 
     public static void ReloadWhenIdle()
     {
+        if (!AISettings.AutoLoadScriptPlugIn) return;
         if (Scheduled) return;
         Scheduled = true;
-        
+
         if (!ScriptProjectRunner.IsSupportedRhino) return;
-        
+
         RhinoApp.Initialized += Initialized;
     }
 
@@ -46,4 +47,47 @@ internal static class ScriptProjectStartup
             RhinoApp.WriteLine($"Rhino AI could not reload your script commands: {ex.Message}");
         }
     }
+
+    private const string RHINO_PATH = @"Software\McNeel\Rhinoceros";
+
+    /// <summary>
+    /// Prevents the AI Plugin being registered ANYWHERE.
+    /// </summary>
+    public static void DeleteRegistryCache()
+    {
+        if (!Runtime.HostUtils.RunningOnWindows) return;
+        if (!TryReadProjectId(out Guid id)) return;
+
+        using Microsoft.Win32.RegistryKey? rhino = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RHINO_PATH, writable: true);
+        if (rhino is null) return;
+
+        string key = id.ToString();
+        foreach (string version in rhino.GetSubKeyNames())
+        {
+            // TODO : Ignore pre-9.0
+
+            using Microsoft.Win32.RegistryKey? plugIns = rhino.OpenSubKey(version + @"\Plug-Ins", writable: true);
+            plugIns?.DeleteSubKeyTree(key, throwOnMissingSubKey: false);
+        }
+    }
+
+    private static bool TryReadProjectId(out Guid id)
+    {
+        id = Guid.Empty;
+        string projectFile = ScriptProjectPaths.For(null).ProjectFile;
+        if (!File.Exists(projectFile)) return false;
+
+        try
+        {
+            using JsonDocument json = JsonDocument.Parse(File.ReadAllText(projectFile));
+            if (!json.RootElement.TryGetProperty("id", out JsonElement element)) return false;
+            element.TryGetGuid(out id);
+            return id != Guid.Empty;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException)
+        {
+            return false;
+        }
+    }
+
 }

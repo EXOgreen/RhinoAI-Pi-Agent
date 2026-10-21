@@ -20,10 +20,9 @@ keywords:
 
 [Claude Code](https://claude.com/claude-code)
 
-## 2. Install the Rhino plugin
+## 2. Install the Rhino plugin (Rhino 8 only!)
 
 {{< yak package="Rhino-MCP-Platform" version="8" >}}
-{{< yak package="Rhino-MCP-Platform" version="9" >}}
 
 If that doesn't work you can try the below:
 
@@ -44,7 +43,7 @@ If that doesn't work you can try the below:
 Inside a Claude Code session, run:
 
 ```
-/plugin marketplace add mcneel/RhinoMCP
+/plugin marketplace add mcneel/RhinoAI
 /plugin install mcneel@rhino-mcp
 ```
 
