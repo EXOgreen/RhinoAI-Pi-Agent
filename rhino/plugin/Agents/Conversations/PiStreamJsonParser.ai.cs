@@ -34,6 +34,10 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
     private AgentDefinition Definition { get; }
     private string? McpConfigPath { get; set; }
 
+    // net48 has no ArgumentList to inspect or rewrite, so the CLI args are tracked here and the
+    // cmd-shim bypass rebuilds psi.Arguments from them.
+    private List<string> SpawnArgs { get; } = [];
+
     public PiStreamJsonParser(AgentDefinition definition)
     {
         Definition = definition;
@@ -54,9 +58,11 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
 
     public CliLogin.State ReadAuthState(string output, int exitCode) => CliLogin.State.Unknown;
 
-    public void ConfigureArguments(ProcessStartInfo psi, string mcpUrl, string agentSessionId, IReadOnlyList<string> mcpServers, bool resume)
+    public void ConfigureArguments(ProcessStartInfo psi, string mcpUrl, string agentSessionId, IReadOnlyList<string> mcpServers, bool resume, IReadOnlyList<ContentBlock> prompt)
     {
-        BypassCmdShim(psi);
+        // The turn still travels over stdin (FormatTurn); pi -p merges piped stdin into the initial
+        // prompt, so the spawn-time prompt is not needed here.
+        SpawnArgs.Clear();
 
         // Pi takes --mcp-config as a FILE PATH (unlike Claude's inline JSON), so the server set is
         // written to a temp file. The previous spawn's file is replaced, not leaked.
@@ -88,35 +94,43 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
         McpConfigPath = Path.Combine(Path.GetTempPath(), $"rhino-pi-mcp-{Guid.NewGuid():N}.json");
         File.WriteAllText(McpConfigPath, new JsonObject { ["mcpServers"] = servers }.ToJsonString(McpSerializer.Options));
 
-        psi.ArgumentList.Add("-p"); // print mode: process the prompt and exit (one turn per process)
-        psi.ArgumentList.Add("--mode");
-        psi.ArgumentList.Add("json");
-        psi.ArgumentList.Add("--mcp-config");
-        psi.ArgumentList.Add(McpConfigPath);
+        Arg(psi, "-p"); // print mode: process the prompt and exit (one turn per process)
+        Arg(psi, "--mode");
+        Arg(psi, "json");
+        Arg(psi, "--mcp-config");
+        Arg(psi, McpConfigPath);
 
         string systemPrompt = AgentPrompts.Compose(AISettings.EffectivePrompt(Definition));
         if (systemPrompt.Length > 0)
         {
-            psi.ArgumentList.Add("--append-system-prompt");
-            psi.ArgumentList.Add(systemPrompt);
+            Arg(psi, "--append-system-prompt");
+            Arg(psi, systemPrompt);
         }
 
         // Empty means "use pi's own configured default" (its settings.json defaultProvider/
         // defaultModel), so no flag at all - not an empty --model.
         if (AISettings.EffectiveModel(Definition) is { Length: > 0 } model)
         {
-            psi.ArgumentList.Add("--model");
-            psi.ArgumentList.Add(model);
+            Arg(psi, "--model");
+            Arg(psi, model);
         }
 
         // Fresh: ask pi to create the session under our id (it may mint its own instead - we adopt
         // whatever the session event reports). Respawn after cancel/crash: load it from disk.
         // (NOT --resume/-r: that flag takes no value and opens the interactive session picker.)
-        if (resume)
-            psi.ArgumentList.Add("--session");
-        else
-            psi.ArgumentList.Add("--session-id");
-        psi.ArgumentList.Add(agentSessionId);
+        Arg(psi, resume ? "--session" : "--session-id");
+        Arg(psi, agentSessionId);
+
+        // Last: on net48 the bypass rebuilds psi.Arguments from SpawnArgs, which must be complete.
+        BypassCmdShim(psi);
+    }
+
+    // AddArgument is the net48-safe append (escaped Arguments string); SpawnArgs mirrors it so the
+    // shim bypass can rebuild the command line where ArgumentList does not exist.
+    private void Arg(ProcessStartInfo psi, string argument)
+    {
+        psi.AddArgument(argument);
+        SpawnArgs.Add(argument);
     }
 
     // On Windows CliProcess launches an npm .cmd shim through `cmd.exe /c`, and cmd re-parses the
@@ -124,13 +138,24 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
     // drops everything after it - including --session, which silently starts a fresh session. The
     // shim is nothing but a node launcher for the bundled CLI, so when its layout resolves, point
     // straight at node.exe + cli.js: a real .exe receives CreateProcess's argument list verbatim.
-    private static void BypassCmdShim(ProcessStartInfo psi)
+    private void BypassCmdShim(ProcessStartInfo psi)
     {
         if (!OperatingSystem.IsWindows()) return;
-        // CliProcess.ConfigureFileName's batch-shim shape: FileName=cmd.exe, args=[/c, <shim>, ...].
+        if (!string.Equals(Path.GetFileName(psi.FileName), "cmd.exe", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // CliProcess.ConfigureFileName's batch-shim shape: FileName=cmd.exe, /c <shim> leading the
+        // args. On net8.0 the shim is ArgumentList[1]; on net48 it is the quoted token after /c in
+        // the raw Arguments string (ConfigureFileName ran before us, so SpawnArgs holds only the
+        // CLI args that follow it).
+        string shim;
+#if NETFRAMEWORK
+        shim = ShimFromArguments(psi.Arguments) ?? string.Empty;
+#else
         if (psi.ArgumentList.Count < 2 || !string.Equals(psi.ArgumentList[0], "/c", StringComparison.OrdinalIgnoreCase))
             return;
-        string shim = psi.ArgumentList[1];
+        shim = psi.ArgumentList[1];
+#endif
         if (!shim.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) && !shim.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
             return;
 
@@ -140,14 +165,47 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
             return; // unknown layout: keep the cmd launch (single-line args survive it)
 
         string node = Path.Combine(dir, "node.exe");
+#if NETFRAMEWORK
+        // No ArgumentList to rewrite: rebuild the raw command line from the tracked args.
+        System.Text.StringBuilder line = new();
+        AppendRebuiltArg(line, cliJs);
+        foreach (string arg in SpawnArgs)
+            AppendRebuiltArg(line, arg);
+        psi.Arguments = line.ToString();
+#else
         List<string> args = [cliJs];
         foreach (string arg in psi.ArgumentList.Skip(2))
             args.Add(arg);
         psi.ArgumentList.Clear();
         foreach (string arg in args)
             psi.ArgumentList.Add(arg);
+#endif
         psi.FileName = File.Exists(node) ? node : "node";
     }
+
+#if NETFRAMEWORK
+    private static void AppendRebuiltArg(System.Text.StringBuilder line, string argument)
+    {
+        if (line.Length != 0)
+            line.Append(' ');
+        line.Append(ProcessArguments.EscapeArgument(argument));
+    }
+
+    // First quoted token after the leading /c: "/c" "<shim>" ... (shim paths here never embed quotes).
+    private static string? ShimFromArguments(string arguments)
+    {
+        int start = arguments.IndexOf('"');
+        if (start < 0) return null;
+        // Skip the "/c" token, then read the next quoted token.
+        int firstClose = arguments.IndexOf('"', start + 1);
+        if (firstClose < 0) return null;
+        int secondOpen = arguments.IndexOf('"', firstClose + 1);
+        if (secondOpen < 0) return null;
+        int secondClose = arguments.IndexOf('"', secondOpen + 1);
+        if (secondClose < 0) return null;
+        return arguments.Substring(secondOpen, secondClose - secondOpen);
+    }
+#endif
 
     // The turn is written to stdin as plain text; pi -p merges piped stdin into the initial prompt
     // and the runner closes stdin (EOF) right after, which is what starts processing.

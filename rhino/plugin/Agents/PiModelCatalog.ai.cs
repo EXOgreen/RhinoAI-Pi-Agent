@@ -91,7 +91,7 @@ internal static class PiModelCatalog
         };
         CliProcess.ConfigureEncoding(psi);
         CliProcess.ConfigureFileName(psi, piExe);
-        psi.ArgumentList.Add("--list-models");
+        psi.AddArgument("--list-models");
 
         Process proc;
         try

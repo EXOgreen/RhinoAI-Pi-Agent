@@ -52,5 +52,16 @@ internal static class ProcessArguments
         }
         line.Append('"');
     }
+
+    internal static string EscapeArgument(string argument)
+    {
+        StringBuilder line = new();
+        AppendEscaped(line, argument);
+        return line.ToString();
+    }
+#endif
+
+#if !NETFRAMEWORK
+    internal static string EscapeArgument(string argument) => argument;
 #endif
 }
