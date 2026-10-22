@@ -26,6 +26,7 @@ import {
 
 export type BlockView =
   | { kind: 'text'; id: string; at: string; text: Signal<string> }
+  | { kind: 'thought'; id: string; at: string; text: Signal<string> }
   | { kind: 'tool'; id: string; call: Signal<ToolCall> }
   | { kind: 'image'; id: string; image: TurnImage }
   | { kind: 'notice'; id: string; level: NoticeLevel; text: string };
@@ -63,6 +64,8 @@ function blockFrom(snapshot: BlockSnapshot): BlockView {
   switch (snapshot.kind) {
     case 'text':
       return { kind: 'text', id: snapshot.id, at: snapshot.at, text: signal(snapshot.text) };
+    case 'thought':
+      return { kind: 'thought', id: snapshot.id, at: snapshot.at, text: signal(snapshot.text) };
     case 'tool':
       return { kind: 'tool', id: snapshot.id, call: signal(snapshot.call) };
     case 'image':
@@ -188,6 +191,25 @@ export class Store {
         turn.blocks.set((blocks) => [
           ...blocks,
           { kind: 'text', id: event.blockId, at: new Date().toISOString(), text: signal(event.delta) },
+        ]);
+        return;
+      }
+
+      case 'turn.thought': {
+        const turn = this.turn(event.turnId);
+        if (!turn) return;
+        const existing = turn
+          .blocks()
+          .find((block): block is Extract<BlockView, { kind: 'thought' }> =>
+            block.kind === 'thought' && block.id === event.blockId,
+          );
+        if (existing) {
+          existing.text.set((text) => text + event.delta);
+          return;
+        }
+        turn.blocks.set((blocks) => [
+          ...blocks,
+          { kind: 'thought', id: event.blockId, at: new Date().toISOString(), text: signal(event.delta) },
         ]);
         return;
       }

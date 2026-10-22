@@ -20,6 +20,7 @@ export const EN = {
   'empty.setupGuide': 'Read the setup guide',
 
   'plan.head': 'Plan',
+  'thought.summary': 'Thinking',
   'turn.copy': 'Copy the reply',
   'turn.retry': 'Ask again',
   'turn.undoTitle': 'Revert every document change this turn made',

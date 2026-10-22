@@ -244,8 +244,8 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
 
             case "message_update":
                 // Delta-only events off the in-flight assistant message: text_delta is live answer
-                // text; toolcall_start/end bracket one tool call's streamed arguments. Thinking
-                // deltas are dropped - the panel protocol has no thinking block to carry them.
+                // text, thinking_delta is the model's reasoning (panel shows it in a collapsible
+                // block), toolcall_start/end bracket one tool call's streamed arguments.
                 if (!root.TryGetProperty("assistantMessageEvent", out JsonElement evt) ||
                     !TryStr(evt, "type", out string evtType))
                     return ParsedLine.None;
@@ -253,6 +253,9 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
                 {
                     case "text_delta" when TryStr(evt, "delta", out string text):
                         return ParsedLine.Emit(Chunk(text));
+
+                    case "thinking_delta" when TryStr(evt, "delta", out string thought):
+                        return ParsedLine.Emit(Thought(thought));
 
                     // The call exists before its arguments finish streaming; the UI gets the title
                     // now and the args via the toolcall_end update.
@@ -374,6 +377,11 @@ internal sealed class PiStreamJsonParser : IStreamJsonParser
         : "unknown error";
 
     private static AgentMessageChunkSessionUpdate Chunk(string text) => new()
+    {
+        Content = new TextContentBlock { Text = text },
+    };
+
+    private static AgentThoughtChunkSessionUpdate Thought(string text) => new()
     {
         Content = new TextContentBlock { Text = text },
     };

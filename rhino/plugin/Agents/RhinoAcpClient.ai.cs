@@ -22,6 +22,9 @@ internal sealed class RhinoAcpClient : IAcpClient
             case AgentMessageChunkSessionUpdate chunk:
                 Conversation.Record(TurnEventKind.AssistantText, AcpMessageMapper.TextOf(chunk.Content));
                 break;
+            case AgentThoughtChunkSessionUpdate thought:
+                Conversation.Record(TurnEventKind.Thinking, AcpMessageMapper.TextOf(thought.Content));
+                break;
             case ToolCallSessionUpdate call:
                 Conversation.Record(TurnEventKind.ToolUse, call.Title, args: Raw(call.RawInput), id: call.ToolCallId);
                 break;

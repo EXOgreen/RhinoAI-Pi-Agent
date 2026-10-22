@@ -6,6 +6,7 @@ namespace Rhino.AI;
 internal enum TurnEventKind
 {
     AssistantText,
+    Thinking,
     ToolUse,
     Result,
     SessionStarted,

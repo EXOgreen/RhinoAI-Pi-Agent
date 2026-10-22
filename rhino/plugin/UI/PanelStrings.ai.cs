@@ -26,6 +26,7 @@ internal static class PanelStrings
         ["empty.setupGuide"] = Localization.LocalizeString("Read the setup guide", 75),
 
         ["plan.head"] = Localization.LocalizeString("Plan", 76),
+        ["thought.summary"] = Localization.LocalizeString("Thinking", 175),
         ["turn.copy"] = Localization.LocalizeString("Copy the reply", 77),
         ["turn.retry"] = Localization.LocalizeString("Ask again", 78),
         ["turn.undoTitle"] = Localization.LocalizeString("Revert every document change this turn made", 79),

@@ -18,6 +18,7 @@ namespace Rhino.AI.UI;
 [JsonDerivedType(typeof(ConversationEvent), "conversation")]
 [JsonDerivedType(typeof(TurnBeginEvent), "turn.begin")]
 [JsonDerivedType(typeof(TurnTextEvent), "turn.text")]
+[JsonDerivedType(typeof(TurnThoughtEvent), "turn.thought")]
 [JsonDerivedType(typeof(TurnToolEvent), "turn.tool")]
 [JsonDerivedType(typeof(TurnToolPatchEvent), "turn.tool.patch")]
 [JsonDerivedType(typeof(TurnImageEvent), "turn.image")]
@@ -40,6 +41,7 @@ internal sealed record HistoryEvent(IReadOnlyList<PanelHistoryEntry> Entries) : 
 internal sealed record ConversationEvent(PanelConversation Snapshot) : PanelEvent;
 internal sealed record TurnBeginEvent(PanelTurn Turn) : PanelEvent;
 internal sealed record TurnTextEvent(string TurnId, string BlockId, string Delta) : PanelEvent;
+internal sealed record TurnThoughtEvent(string TurnId, string BlockId, string Delta) : PanelEvent;
 internal sealed record TurnToolEvent(string TurnId, PanelToolCall Call) : PanelEvent;
 internal sealed record TurnToolPatchEvent(string TurnId, string CallId, PanelToolPatch Patch) : PanelEvent;
 internal sealed record TurnImageEvent(string TurnId, PanelImage Image) : PanelEvent;

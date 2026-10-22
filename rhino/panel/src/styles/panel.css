@@ -449,6 +449,27 @@ a:hover { text-decoration: underline; }
 }
 @keyframes caret { 50% { opacity: 0; } }
 
+/* ------------------------------------------------------------- thinking */
+
+.thought {
+  margin: 0 0 .8em;
+  min-width: 0;
+  border-inline-start: 2px solid var(--border-strong);
+  padding-inline-start: 9px;
+}
+.thought summary {
+  cursor: pointer;
+  font-size: var(--fs);
+  color: var(--text-faint);
+  user-select: none;
+}
+.thought summary:hover { color: var(--text-dim); }
+.thought .md {
+  margin-top: 4px;
+  font-size: var(--fs);
+  color: var(--text-dim);
+}
+
 /* ------------------------------------------------------------- markdown */
 
 .md > :first-child { margin-top: 0; }

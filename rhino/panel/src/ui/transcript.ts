@@ -9,7 +9,7 @@ import { emptyState } from './empty.js';
 import { icon } from './icons.js';
 import { imageBlock } from './imageBlock.js';
 import { notices } from './notices.js';
-import { agentMessage } from './message.js';
+import { agentMessage, thoughtBlock } from './message.js';
 import { toolCard } from './toolCard.js';
 
 const CONTEXT_ICON = {
@@ -89,6 +89,11 @@ function block(ctx: PanelContext, turn: TurnView, view: BlockView): Child {
   switch (view.kind) {
     case 'text':
       return agentMessage(ctx, view.text, () => {
+        const blocks = turn.blocks();
+        return turn.status() === 'running' && blocks[blocks.length - 1]?.id === view.id;
+      });
+    case 'thought':
+      return thoughtBlock(ctx, view.text, () => {
         const blocks = turn.blocks();
         return turn.status() === 'running' && blocks[blocks.length - 1]?.id === view.id;
       });

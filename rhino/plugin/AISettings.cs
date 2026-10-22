@@ -73,6 +73,11 @@ internal static class AISettings
 
     public static void SetAgentPrompt(string name, string prompt) => Settings.SetString(AgentKey(name, "Prompt"), prompt);
 
+    // Whether the agent's thinking blocks are shown in the panel; off makes the feed drop thought events.
+    public static bool AgentShowThinking(string name) => Settings.GetBool(AgentKey(name, "ShowThinking"), true);
+
+    public static void SetAgentShowThinking(string name, bool show) => Settings.SetBool(AgentKey(name, "ShowThinking"), show);
+
     public static string EffectiveModel(AgentDefinition def) =>
         AgentModel(def.Name) is { Length: > 0 } model ? model : def.DefaultModel;
 

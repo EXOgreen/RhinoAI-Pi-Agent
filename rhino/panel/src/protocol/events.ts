@@ -135,6 +135,7 @@ export interface HistoryEntry {
 
 export type BlockSnapshot =
   | { kind: 'text'; id: string; text: string; at: string }
+  | { kind: 'thought'; id: string; text: string; at: string }
   | { kind: 'tool'; id: string; call: ToolCall }
   | { kind: 'image'; id: string; image: TurnImage }
   | { kind: 'notice'; id: string; level: NoticeLevel; text: string };
@@ -189,6 +190,7 @@ export type HostEvent =
   | { type: 'conversation'; snapshot: ConversationSnapshot }
   | { type: 'turn.begin'; turn: TurnSnapshot }
   | { type: 'turn.text'; turnId: string; blockId: string; delta: string }
+  | { type: 'turn.thought'; turnId: string; blockId: string; delta: string }
   | { type: 'turn.tool'; turnId: string; call: ToolCall }
   | { type: 'turn.tool.patch'; turnId: string; callId: string; patch: ToolPatch }
   | { type: 'turn.image'; turnId: string; image: TurnImage }

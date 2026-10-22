@@ -19,6 +19,7 @@ internal sealed class AISettingsPanel : Panel
     private Label NameHeader { get; } = new() { Font = Eto.Drawing.Fonts.Sans(13, FontStyle.Bold) };
     private Label AvailableLabel { get; } = new();
     private CheckBox EnabledBox { get; } = new() { Text = Localization.LocalizeString("Enabled", 13) };
+    private CheckBox ShowThinkingBox { get; } = new() { Text = Localization.LocalizeString("Show thinking", 219) };
     private DropDown ModelBox { get; } = new();
     private TextArea SearchPathsBox { get; } = new() { Wrap = false, Height = 70, ReadOnly = true };
     private TextArea SystemPromptBox { get; } = new() { Wrap = true, Height = 90 };
@@ -80,6 +81,7 @@ internal sealed class AISettingsPanel : Panel
             AISettings.SetAgentEnabled(row.Name, row.Enabled);
             AISettings.SetAgentModel(row.Name, row.Model);
             AISettings.SetAgentPrompt(row.Name, row.SystemPrompt);
+            AISettings.SetAgentShowThinking(row.Name, row.ShowThinking);
         }
 
         if (Rows.FirstOrDefault(r => r.IsDefault) is AgentRow defaultRow)
@@ -145,6 +147,7 @@ internal sealed class AISettingsPanel : Panel
         AgentGrid.ContextMenu = BuildGridContextMenu();
 
         EnabledBox.CheckedChanged += (_, _) => WriteEditor(row => row.Enabled = EnabledBox.Checked == true);
+        ShowThinkingBox.CheckedChanged += (_, _) => WriteEditor(row => row.ShowThinking = ShowThinkingBox.Checked == true);
         ModelBox.SelectedValueChanged += (_, _) => WriteEditor(row => row.Model = CurrentModelValue());
         SystemPromptBox.TextChanged += (_, _) => WriteEditor(row => row.SystemPrompt = SystemPromptBox.Text);
 
@@ -168,6 +171,7 @@ internal sealed class AISettingsPanel : Panel
                 new TableRow(AvailableLabel),
                 new TableRow(EnabledBox),
                 new TableRow(LabeledColumn(Localization.LocalizeString("Model:", 23), ModelBox)),
+                new TableRow(ShowThinkingBox),
                 new TableRow(LabeledColumn(Localization.LocalizeString("Found at:", 24), SearchPathsBox)),
                 new TableRow(LabeledColumn(Localization.LocalizeString("Prompt:", 25), SystemPromptBox)),
                 new TableRow { ScaleHeight = true },
@@ -236,6 +240,7 @@ internal sealed class AISettingsPanel : Panel
         row.Model = string.Empty;
         row.SystemPrompt = string.Empty;
         row.Enabled = true;
+        row.ShowThinking = true;
 
         ReloadGrid();
         LoadEditor();
@@ -255,6 +260,7 @@ internal sealed class AISettingsPanel : Panel
                 AvailableLabel.Text = row.Available ? $"✓ {FoundString}" : $"✗ {NotFoundString}";
                 AvailableLabel.TextColor = row.Available ? Colors.Green : Colors.Red;
                 EnabledBox.Checked = row.Enabled;
+                ShowThinkingBox.Checked = row.ShowThinking;
                 LoadModelBox(row);
                 SearchPathsBox.Text = row.SearchPathsText;
                 SystemPromptBox.Text = row.SystemPrompt;
@@ -265,6 +271,7 @@ internal sealed class AISettingsPanel : Panel
                 NameHeader.Text = Localization.LocalizeString("No agent selected", 30);
                 AvailableLabel.Text = string.Empty;
                 EnabledBox.Checked = false;
+                ShowThinkingBox.Checked = false;
                 ModelBox.Items.Clear();
                 SearchPathsBox.Text = string.Empty;
                 SystemPromptBox.Text = string.Empty;
@@ -298,6 +305,7 @@ internal sealed class AISettingsPanel : Panel
     private void EnableEditor(bool enabled)
     {
         EnabledBox.Enabled = enabled;
+        ShowThinkingBox.Enabled = enabled;
         ModelBox.Enabled = enabled;
         SystemPromptBox.Enabled = enabled;
     }
@@ -603,6 +611,7 @@ internal sealed class AISettingsPanel : Panel
         public string Model { get; set; }
         public string SystemPrompt { get; set; }
         public bool Enabled { get; set; }
+        public bool ShowThinking { get; set; }
         public bool IsDefault { get; set; }
 
         //public string DefaultGlyph => IsDefault ? "✓" : string.Empty;
@@ -614,7 +623,7 @@ internal sealed class AISettingsPanel : Panel
 
         public AgentRow(
             string name, bool available, string searchPathsText, IReadOnlyList<ModelSpec> models,
-            string defaultModel, string model, string systemPrompt, bool enabled, bool isDefault)
+            string defaultModel, string model, string systemPrompt, bool enabled, bool showThinking, bool isDefault)
         {
             Name = name;
             Available = available;
@@ -624,6 +633,7 @@ internal sealed class AISettingsPanel : Panel
             Model = model;
             SystemPrompt = systemPrompt;
             Enabled = enabled;
+            ShowThinking = showThinking;
             IsDefault = isDefault;
         }
 
@@ -637,6 +647,7 @@ internal sealed class AISettingsPanel : Panel
                 AISettings.AgentModel(def.Name),
                 AISettings.AgentPrompt(def.Name),
                 AISettings.IsEnabled(def),
+                AISettings.AgentShowThinking(def.Name),
                 isDefault);
     }
 }

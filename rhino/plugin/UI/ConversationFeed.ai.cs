@@ -42,6 +42,9 @@ internal sealed class ConversationFeed
         // Consecutive assistant chunks are one block; a tool call or a result closes it.
         public string? OpenTextBlock;
         public int TextBlocks;
+        // Thinking runs the same way: consecutive thought chunks are one block, closed by anything else.
+        public string? OpenThoughtBlock;
+        public int ThoughtBlocks;
         public Dictionary<string, ToolOutcome> ToolOutcomes = new();
         public bool UsageSent;
         public bool Ended;
@@ -79,6 +82,10 @@ internal sealed class ConversationFeed
 
     public void Pump()
     {
+        // Read once per pump, not per event: the setting can flip in the settings dialog while a
+        // conversation is live, and a pump is the natural granularity for it to take effect.
+        bool showThinking = AISettings.AgentShowThinking(Source.AgentName);
+
         IReadOnlyList<TurnEvent> lifecycle = Source.Lifecycle;
         for (; LifecycleSent < lifecycle.Count; LifecycleSent++)
         {
@@ -111,7 +118,7 @@ internal sealed class ConversationFeed
                     Undoable: true,
                     Error: null)));
             }
-            PumpTurn(Cursors[i], turns[i]);
+            PumpTurn(Cursors[i], turns[i], showThinking);
         }
 
         PumpQuestion();
@@ -125,7 +132,7 @@ internal sealed class ConversationFeed
         return described;
     }
 
-    private void PumpTurn(TurnCursor cursor, Turn turn)
+    private void PumpTurn(TurnCursor cursor, Turn turn, bool showThinking)
     {
         IReadOnlyList<TurnEvent> events = turn.Events;
 
@@ -156,9 +163,16 @@ internal sealed class ConversationFeed
                     AppendAndScan(cursor, ev.Text);
                     break;
 
+                case TurnEventKind.Thinking when showThinking:
+                    cursor.OpenThoughtBlock ??= $"{cursor.Id}-t{++cursor.ThoughtBlocks}";
+                    Emit(new TurnThoughtEvent(cursor.Id, cursor.OpenThoughtBlock, ev.Text));
+                    AppendAndScan(cursor, ev.Text);
+                    break;
+
                 case TurnEventKind.ToolUse:
                 {
                     cursor.OpenTextBlock = null;
+                    cursor.OpenThoughtBlock = null;
                     string callId = CallId(cursor, cursor.EventsSent, ev);
                     cursor.ToolOutcomes[callId] = new ToolOutcome(ev.Result, ev.Done);
                     Emit(new TurnToolEvent(cursor.Id, CallFor(callId, ev)));
@@ -168,6 +182,7 @@ internal sealed class ConversationFeed
 
                 case TurnEventKind.Result:
                     cursor.OpenTextBlock = null;
+                    cursor.OpenThoughtBlock = null;
                     if (!string.IsNullOrWhiteSpace(ev.Text))
                         Emit(new TurnTextEvent(cursor.Id, $"{cursor.Id}-b{++cursor.TextBlocks}", ev.Text));
                     AppendAndScan(cursor, ev.Text);
